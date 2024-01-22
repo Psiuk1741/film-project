@@ -1,0 +1,16 @@
+version: '3.9'
+
+services:
+  film-project:
+    image: postgis/postgis
+    ports:
+      - '${POSTGRES_EXTERNAL_PORT:-5432}:5432'
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: film-project
+    volumes:
+      - film-project-db:/var/lib/postgresql/film-project
+
+volumes:
+  film-project-db:
