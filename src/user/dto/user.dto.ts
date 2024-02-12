@@ -41,3 +41,27 @@ export class UserCreateDto {
   @IsNotEmpty()
   isActive: boolean;
 }
+
+export class UserLoginDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  email: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  password: string;
+}
+
+export class UserLoginSocialDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  email: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  accessToken: string;
+}

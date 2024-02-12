@@ -5,7 +5,6 @@ import { ValidationPipe } from '@nestjs/common';
 import * as dotenv from 'dotenv';
 
 const environment: string = process.env.NODE_ENV ?? '';
-
 dotenv.config({ path: `environments/${environment}.env` });
 
 async function bootstrap() {
