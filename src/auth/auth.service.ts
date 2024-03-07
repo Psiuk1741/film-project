@@ -37,5 +37,17 @@ export class AuthService {
       throw new UnauthorizedException();
     }
   }
-
+  decode(token: string): JWTPayload | any {
+    try {
+      return this.jwtService.decode(token);
+    } catch (e) {
+      console.log(
+        new Date().toISOString(),
+        ' [JWT VERIFY ERROR] ',
+        JSON.stringify(e),
+        ' [TOKEN] ',
+        token,
+      );
+    }
+  }
 }

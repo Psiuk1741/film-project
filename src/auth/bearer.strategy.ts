@@ -4,7 +4,7 @@ import { Strategy } from 'passport';
 import { JwtService } from '@nestjs/jwt';
 import { AuthService } from './auth.service';
 import { ExtractJwt } from 'passport-jwt';
-import * as process from 'process';
+import { InjectRedisClient, RedisClient } from '@webeleon/nestjs-redis';
 import { User } from '../user/user.entity';
 
 @Injectable()
@@ -12,6 +12,7 @@ export class BearerStrategy extends PassportStrategy(Strategy, 'bearer') {
   constructor(
     private readonly jwtService: JwtService,
     private readonly authService: AuthService,
+    @InjectRedisClient() private redisClient: RedisClient,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -19,13 +20,24 @@ export class BearerStrategy extends PassportStrategy(Strategy, 'bearer') {
     });
   }
 
-  async validate(token: string): Promise<any> {
-    let user: User;
+  async validate(token: string): Promise<User> {
+    let user = null;
+    console.log(222222);
     try {
-      const payload = await this.jwtService.verify(token);
-      user = await this.authService.validateUser(payload.id);
-    } catch (err) {
-      console.log(new Date().toISOString(), token);
+      if (!(await this.redisClient.exists(token))) {
+        throw new UnauthorizedException();
+      }
+      await this.jwtService.verifyAsync(token);
+      const decodeToken: any = this.jwtService.decode(token);
+      user = await this.authService.validateUser(decodeToken);
+    } catch (e) {
+      console.log(
+        new Date().toISOString(),
+        ' [JWT USER VERIFY ERROR] ',
+        JSON.stringify(e),
+        ' [TOKEN] ',
+        token,
+      );
       throw new UnauthorizedException();
     }
     return user;

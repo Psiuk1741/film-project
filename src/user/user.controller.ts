@@ -3,13 +3,20 @@ import {
   Controller,
   Delete,
   Get,
+  HttpStatus,
   Param,
   Post,
   Query,
   Req,
+  Res,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiExtraModels, ApiTags } from '@nestjs/swagger';
-import { UserCreateDto, UserLoginDto, UserLoginSocialDto } from "./dto/user.dto";
+import {
+  UserCreateDto,
+  UserLoginDto,
+
+} from './dto/user.dto';
 import { UserService } from './user.service';
 import { PublicUserInfoDto } from '../common/query/user.query.dto';
 import { PublicUserData } from './interface/user.interface';
@@ -17,6 +24,8 @@ import {
   ApiPaginatedResponse,
   PaginatedDto,
 } from '../common/pagination/response';
+import { LogoutGuard } from '../common/guards/logout.guard';
+import { AuthGuard } from '@nestjs/passport';
 
 @ApiTags('User')
 @ApiExtraModels(PublicUserData, PaginatedDto)
@@ -36,8 +45,14 @@ export class UserController {
   }
 
   @Post('account/login')
-  async loginUser(@Body() body: UserLoginDto){
+  async loginUser(@Body() body: UserLoginDto) {
     return this.userService.login(body);
+  }
+
+  @UseGuards(AuthGuard(), LogoutGuard)
+  @Post('logout')
+  async logout(@Res() res: any) {
+    return res.status(HttpStatus.OK).json('logout success');
   }
 
   // @Post('account/social/login')

@@ -1,5 +1,4 @@
-import { Module } from '@nestjs/common';
-import { AuthController } from './auth.controller';
+import { forwardRef, Module } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PassportModule } from '@nestjs/passport';
@@ -8,6 +7,8 @@ import { JwtModule } from '@nestjs/jwt';
 import * as process from 'process';
 import { BearerStrategy } from './bearer.strategy';
 import { UserService } from '../user/user.service';
+import { RedisModule } from '@webeleon/nestjs-redis';
+import { UserModule } from '../user/user.module';
 
 @Module({
   imports: [
@@ -15,6 +16,9 @@ import { UserService } from '../user/user.service';
       defaultStrategy: 'bearer',
       property: 'user',
       session: false,
+    }),
+    RedisModule.forRoot({
+      url: 'redis://localhost:6379',
     }),
     TypeOrmModule.forFeature([User]),
     JwtModule.registerAsync({
@@ -29,9 +33,9 @@ import { UserService } from '../user/user.service';
         },
       }),
     }),
+    forwardRef(() => UserModule),
   ],
-  controllers: [AuthController],
-  providers: [AuthService, BearerStrategy],
+  providers: [AuthService, BearerStrategy, UserService],
   exports: [PassportModule, AuthService],
 })
 export class AuthModule {}

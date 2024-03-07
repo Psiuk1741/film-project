@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { Repository } from 'typeorm';
+
 import { User } from './user.entity';
-import { InjectRepository } from '@nestjs/typeorm';
+
 import {
   UserCreateDto,
   UserLoginDto,
@@ -10,11 +10,13 @@ import {
 import * as bcrypt from 'bcrypt';
 import { AuthService } from '../auth/auth.service';
 import { PublicUserInfoDto } from '../common/query/user.query.dto';
-import { paginateRawAndEntities } from 'nestjs-typeorm-paginate';
+
 import { PublicUserData } from './interface/user.interface';
 import { PaginatedDto } from '../common/pagination/response';
 import * as process from 'process';
 import { OAuth2Client } from 'google-auth-library';
+import { InjectRedisClient, RedisClient } from '@webeleon/nestjs-redis';
+import { UserRepository } from './user.repository';
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
@@ -22,44 +24,15 @@ const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
 export class UserService {
   private salt = 5;
   constructor(
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
+    private readonly userRepository: UserRepository,
     private readonly authService: AuthService,
+    @InjectRedisClient() private redisClient: RedisClient,
   ) {}
 
   async getAllUsers(
     query: PublicUserInfoDto,
   ): Promise<PaginatedDto<PublicUserData>> {
-    query.sort = query.sort || 'id';
-    query.order = query.order || 'ASC';
-    const options = {
-      page: query.page || 1,
-      limit: query.limit || 2,
-    };
-
-    const queryBuilder = this.userRepository
-      .createQueryBuilder('users')
-      .select('id, age, email, "firstName", "lastName" ');
-
-    if (query.search) {
-      queryBuilder.where('"firstName" IN(:...search)', {
-        search: query.search.split(','),
-      });
-    }
-
-    queryBuilder.orderBy(`"${query.sort}"`, query.order as 'ASC' | 'DESC');
-
-    const [pagination, rawResults] = await paginateRawAndEntities(
-      queryBuilder,
-      options,
-    );
-
-    return {
-      page: pagination.meta.currentPage,
-      pages: pagination.meta.totalPages,
-      countItem: pagination.meta.totalItems,
-      entities: rawResults as [PublicUserData],
-    };
+    return this.userRepository.getAllUsers(query);
   }
 
   async createUser(data: UserCreateDto) {
@@ -75,10 +48,11 @@ export class UserService {
 
     data.password = await this.getHash(data.password);
     const newUser: User = this.userRepository.create(data);
-    // await newUser.save();
+    // // await newUser.save();
     await this.userRepository.save(newUser);
 
     const token = await this.signIn(newUser);
+
     return { token };
   }
 
@@ -92,14 +66,16 @@ export class UserService {
         HttpStatus.UNAUTHORIZED,
       );
     }
-    if (await this.compareHash(data.password, findUser.password)) {
-      const token = await this.signIn(findUser);
-      return { token };
+    if (!(await this.compareHash(data.password, findUser.password))) {
+      throw new HttpException(
+        'Email or password is not correct',
+        HttpStatus.UNAUTHORIZED,
+      );
     }
-    throw new HttpException(
-      'Email or password is not correct',
-      HttpStatus.UNAUTHORIZED,
-    );
+    const token = await this.signIn(findUser);
+    await this.redisClient.setEx(token, 10000, token);
+
+    return { token };
   }
 
   async loginSocial(data: UserLoginSocialDto) {
